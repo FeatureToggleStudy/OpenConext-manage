@@ -46,7 +46,19 @@ export default class MetaData extends React.Component {
   };
 
   validFormat(format, value) {
-    return isEmpty(value) ? true : validation(format, value);
+    if (isEmpty(value)) {
+      return true;
+    }
+
+    if (typeof value === "string") {
+      return validation(format, value);
+    }
+
+    if (typeof value === "object") {
+      return isEmpty(
+        value.map(val => validation(format, val)).filter(val => val === false)
+      );
+    }
   }
 
   validPresence(key, value) {
@@ -75,14 +87,12 @@ export default class MetaData extends React.Component {
   }
 
   renderMetaDataValue = (key, value, keyConfiguration, guest) => {
-    const autoFocus = this.state.newMetaDataFieldKey === key;
-
     const defaultProps = {
+      autoFocus: this.state.newMetaDataFieldKey === key,
       disabled: guest,
       name: key,
       onChange: value => this.doChange(key, value),
-      value: value || "",
-      autoFocus
+      value: value || ""
     };
 
     switch (keyConfiguration.type) {
@@ -91,13 +101,22 @@ export default class MetaData extends React.Component {
       case "number":
         return <Number {...defaultProps} />;
       case "array":
-        let options = keyConfiguration.items.enum;
+        const options = keyConfiguration.items.enum;
 
         if (options) {
           return <SelectMulti {...defaultProps} enumValues={options} />;
         }
 
-        return <Strings {...defaultProps} />;
+        const itemFormat = keyConfiguration.items.format;
+
+        return (
+          <Strings
+            {...defaultProps}
+            format={itemFormat}
+            hasFormatError={!isEmpty(value) && this.props.errors[key]}
+            onChange={value => this.doChange(key, value, itemFormat)}
+          />
+        );
       case "string":
         if (keyConfiguration.enum) {
           return (
